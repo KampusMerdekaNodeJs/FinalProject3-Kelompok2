@@ -1,15 +1,31 @@
-const express = require('express')
+const express = require("express");
 const app = express();
-const router = require('./routers');
-const PORT = 3000;
 
-app.use(express.urlencoded({extended:false}));
+//Routes Middleware
+const errorMiddleware = require("./middlewares/err.middleware");
+const authMiddleware = require("./middlewares/auth.middleware");
+
+const categoriesRoute = require("./routes/categories.routes");
+const userRoute = require("./routes/users.route");
+const productRoute = require("./routes/products.routes");
+const transactionsRoute = require("./routes/transactions.route");
+
+//Authentification & Authorization Middleware
+
+require("dotenv").config();
+
+//middleware
 app.use(express.json());
 
-app.use(router);
+app.use("/users", userRoute);
+app.use("/categories", authMiddleware, categoriesRoute);
+app.use("/products", authMiddleware, productRoute);
+app.use("/transactions", authMiddleware, transactionsRoute);
 
-app.listen(PORT, ()=>{
-    console.log(`app runing on PORT ${PORT}`)
+app.use(errorMiddleware);
+
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log("Server is listening to port " + PORT);
 });
-
-module.exports=app

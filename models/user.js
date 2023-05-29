@@ -1,106 +1,131 @@
-'use strict';
-const { Model } = require('sequelize');
-const {hashPassword} = require('../hellpers/bcrypt')
+"use strict";
+const { Model } = require("sequelize");
+const { v4: uuidv4 } = require("uuid");
+const hash = require("../utils/hash.bcrypt");
 
 module.exports = (sequelize, DataTypes) => {
   class User extends Model {
+    /**
+     * Helper method for defining associations.
+     * This method is not a part of Sequelize lifecycle.
+     * The `models/index` file will call this method automatically.
+     */
     static associate(models) {
       // define association here
+      this.hasMany(models.Category);
+      this.hasMany(models.TransactionHistory);
     }
   }
-
-  User.init({
-    full_name: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      validate: {
-        notEmpty: {
-          args: true,
-          msg: "full_name can't be empty!"
-        }
-      }
-    },
-    email: {
-      type: DataTypes.STRING,
-      unique: {
-        args: true,
-        msg: "This email has been used"
+  User.init(
+    {
+      full_name: {
+        type: DataTypes.STRING,
+        allowNull: {
+          msg: "Email cannot be empty",
+          args: false,
+        },
+        validate: {
+          notEmpty: {
+            args: true,
+            msg: "Full name cannot be empty string",
+          },
+        },
       },
-      allowNull: false,
-      validate: {
-        notEmpty: {
-          args: true,
-          msg: "Email can't be empty!"
+      email: {
+        type: DataTypes.STRING,
+        allowNull: {
+          args: false,
+          msg: "Email cannot be empty",
         },
-        isEmail: {
-          args: true,
-          msg: "Invalid email format"
-        }
-      }
+        validate: {
+          isEmail: {
+            args: true,
+            msg: "Email is not valid, please try again",
+          },
+          notEmpty: {
+            args: true,
+            msg: "Email cannot be empty string",
+          },
+        },
+      },
+      password: {
+        type: DataTypes.STRING,
+        allowNull: {
+          args: false,
+          msg: "Password cannot be empty",
+        },
+        validate: {
+          len: {
+            args: [6, 10],
+            msg: "Password should have atleast 6-10 characters",
+          },
+        },
+      },
+      gender: {
+        type: DataTypes.STRING,
+        allowNull: {
+          args: false,
+          msg: "Gender cannot be empty",
+        },
+        validate: {
+          isIn: {
+            args: [["male", "female"]],
+            msg: "Gender should be male or female",
+          },
+        },
+      },
+      role: {
+        type: DataTypes.STRING,
+        validate: {
+          isIn: {
+            args: [["admin", "customer"]],
+            msg: "Role should be admin or customer",
+          },
+        },
+      },
+      balance: {
+        type: DataTypes.INTEGER,
+        validate: {
+          isInt: {
+            args: true,
+            msg: "Balance should be an integer",
+          },
+          max: {
+            args: 100000000,
+            msg: "Balance surpass the limit!!",
+          },
+          min: {
+            args: 1,
+            msg: "Balance should be higher than 0",
+          },
+        },
+      },
     },
-    password: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      validate: {
-        notEmpty: {
-          args: true,
-          msg: "Password can't be empty!"
-        },
-        len: {
-          args: [6, 10],
-          msg: 'Password must be between 6 and 10 characters',
-        },
-      }
-    },
-    gender: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      validate: {
-        notEmpty: {
-          args: true,
-          msg: "Gender can't be empty!"
-        },
-        isIn: {
-          args: [['male', 'female']],
-          msg: 'Gender must be either "male" or "female"',
-        },
-      }
-    },
-    role: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      defaultValue: 'customer',
-      validate: {
-        isIn: {
-          args: [['admin', 'customer']],
-          msg: 'Role must be either "admin" or "customer"',
-        },
-      }
-    },
-    balance: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      defaultValue: 0,
-      validate: {
-        isInt: true,
-        min: 0,
-        max: 100000000
-      }
+    {
+      sequelize,
+      modelName: "User",
     }
-  }, {
-    sequelize,
-    modelName: 'User',
-    hooks: {
-      beforeCreate: (user, options) => {
-        const hashedPassword = hashPassword(user.password);
-        user.password = hashedPassword;
-        if (!user.role) {
-          user.role = 'customer';
-        }
-        user.balance = 0;
-      }      
-    }
+  );
+
+  User.beforeCreate((user, _) => {
+    user.id = uuidv4();
+    user.balance = 0;
+    user.createdAt = new Date();
+    user.updatedAt = new Date();
+    user.password = hash(user.password);
+    console.log(user.password);
+
+    if (!user.role) user.role = "customer";
   });
 
+  User.beforeUpdate(async (user, options) => {
+    //dapetin data yang req.body nya???
+    //previous data value
+
+    if (options.fields.includes("balance")) {
+      const previousBalance = user._previousDataValues.balance;
+      user.balance = user.balance + previousBalance;
+    }
+  });
   return User;
 };
